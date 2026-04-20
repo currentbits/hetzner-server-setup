@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hetzner Server Setup — Design Spec</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222534;
+      --border: #2e3148;
+      --text: #e2e4f0;
+      --muted: #7b7f9e;
+      --accent: #6c8ef5;
+      --accent2: #a78bfa;
+      --green: #4ade80;
+      --yellow: #facc15;
+      --red: #f87171;
+      --orange: #fb923c;
+      --code-bg: #12141e;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ── Layout ── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ── Header ── */
+    .hero {
+      background: linear-gradient(135deg, #1a1d27 0%, #12141e 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 56px 24px 48px;
+      text-align: center;
+    }
+    .hero-inner { max-width: 1100px; margin: 0 auto; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(108,142,245,0.12); border: 1px solid rgba(108,142,245,0.3);
+      color: var(--accent); border-radius: 999px;
+      padding: 4px 14px; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 20px;
+    }
+    .hero h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 12px; }
+    .hero p { color: var(--muted); font-size: 16px; max-width: 560px; margin: 0 auto 28px; }
+    .hero-meta {
+      display: flex; justify-content: center; gap: 32px; flex-wrap: wrap;
+      font-size: 13px; color: var(--muted);
+    }
+    .hero-meta span { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+
+    /* ── Nav ── */
+    .toc {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 24px 28px; margin: 40px 0;
+    }
+    .toc h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 14px; }
+    .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 24px; }
+    .toc a { color: var(--accent); text-decoration: none; font-size: 14px; }
+    .toc a:hover { text-decoration: underline; }
+
+    /* ── Sections ── */
+    section { margin-top: 56px; }
+    section h2 {
+      font-size: 22px; font-weight: 700; margin-bottom: 20px;
+      padding-bottom: 12px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    section h2 .icon { font-size: 20px; }
+
+    h3 { font-size: 16px; font-weight: 600; margin: 24px 0 10px; color: var(--accent2); }
+
+    p { margin-bottom: 12px; color: var(--text); }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px 24px; margin-bottom: 16px;
+    }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .card-sm { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+    .card-sm h4 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .card-sm p { font-size: 14px; margin: 0; }
+
+    /* ── Code ── */
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 20px; overflow-x: auto; font-size: 13px; line-height: 1.6;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      margin: 12px 0 20px;
+    }
+    code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; }
+    .inline-code {
+      background: var(--code-bg); border: 1px solid var(--border);
+      padding: 2px 7px; border-radius: 4px; font-size: 13px;
+    }
+
+    /* Comment color in code */
+    .c { color: #4b5280; }
+    .s { color: #a78bfa; }
+    .v { color: #6c8ef5; }
+    .k { color: #f87171; }
+
+    /* ── Architecture diagram ── */
+    .arch {
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: 24px; font-family: 'SF Mono', monospace; font-size: 13px; line-height: 1.8;
+      overflow-x: auto;
+    }
+    .arch .pub { color: var(--green); }
+    .arch .priv { color: var(--accent); }
+    .arch .arrow { color: var(--muted); }
+    .arch .svc { color: var(--orange); }
+    .arch .note { color: var(--muted); }
+
+    /* ── Phases ── */
+    .phase-list { display: flex; flex-direction: column; gap: 12px; }
+    .phase {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 18px 20px; display: flex; gap: 16px; align-items: flex-start;
+    }
+    .phase-num {
+      min-width: 36px; height: 36px; border-radius: 8px;
+      background: rgba(108,142,245,0.12); border: 1px solid rgba(108,142,245,0.25);
+      color: var(--accent); font-weight: 700; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .phase-body h4 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .phase-body ul { padding-left: 18px; }
+    .phase-body li { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .phase-body li strong { color: var(--text); }
+
+    /* ── Security layers table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; padding: 10px 14px; background: var(--surface2); color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+    td { padding: 10px 14px; border-top: 1px solid var(--border); }
+    tr:hover td { background: var(--surface2); }
+    .layer-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 999px;
+      font-size: 12px; font-weight: 600;
+    }
+    .badge-net { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+    .badge-host { background: rgba(108,142,245,0.1); color: var(--accent); border: 1px solid rgba(108,142,245,0.2); }
+    .badge-app { background: rgba(251,146,60,0.1); color: var(--orange); border: 1px solid rgba(251,146,60,0.2); }
+    .badge-data { background: rgba(167,139,250,0.1); color: var(--accent2); border: 1px solid rgba(167,139,250,0.2); }
+
+    /* ── Checklist ── */
+    .checklist { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .checklist li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; }
+    .check-done { color: var(--green); font-size: 16px; }
+    .check-todo { color: var(--border); font-size: 16px; }
+
+    /* ── Config block ── */
+    .config-section { margin-bottom: 12px; }
+    .config-comment { color: #4b5280; }
+    .config-key { color: var(--accent); }
+    .config-val { color: #a78bfa; }
+
+    /* ── Notification ── */
+    .notif-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 600px) { .notif-grid { grid-template-columns: 1fr; } }
+
+    /* ── Future ── */
+    .step-list { counter-reset: steps; display: flex; flex-direction: column; gap: 10px; }
+    .step { display: flex; gap: 14px; align-items: flex-start; font-size: 14px; }
+    .step-n {
+      min-width: 28px; height: 28px; border-radius: 50%;
+      background: var(--surface2); color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+
+    /* ── Alternatives ── */
+    .alt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    @media (max-width: 700px) { .alt-grid { grid-template-columns: 1fr; } }
+    .alt { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+    .alt .label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px; }
+    .alt h4 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .alt p { font-size: 13px; color: var(--muted); margin: 0; }
+    .alt.chosen { border-color: rgba(108,142,245,0.4); background: rgba(108,142,245,0.05); }
+    .chosen-badge {
+      display: inline-block; background: rgba(74,222,128,0.1); color: var(--green);
+      border: 1px solid rgba(74,222,128,0.3); border-radius: 999px;
+      padding: 2px 10px; font-size: 11px; font-weight: 600; margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Hero ── -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-badge">🛡 Design Spec</div>
+    <h1>Hetzner Server Setup</h1>
+    <p>Production-ready server provisioning with security hardening, Coolify, and full observability.</p>
+    <div class="hero-meta">
+      <span><span class="dot"></span> Approved</span>
+      <span>📅 2026-04-20</span>
+      <span>🖥 Hetzner CX42 · Debian · Falkenstein (DE)</span>
+      <span>👤 Solo operator (lxadmin)</span>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ── TOC ── -->
+  <div class="toc">
+    <h2>Contents</h2>
+    <div class="toc-grid">
+      <a href="#context">1. Context</a>
+      <a href="#architecture">2. Architecture</a>
+      <a href="#security">3. Security Layers</a>
+      <a href="#config">4. Configuration Block</a>
+      <a href="#phases">5. Script Phases</a>
+      <a href="#notifications">6. Notifications</a>
+      <a href="#checklist">7. Prerequisites</a>
+      <a href="#coolify">8. What Coolify Manages</a>
+      <a href="#expansion">9. Multi-Server Expansion</a>
+      <a href="#alternatives">10. Approach Alternatives</a>
+    </div>
+  </div>
+
+  <!-- ── Context ── -->
+  <section id="context">
+    <h2><span class="icon">📋</span> Context</h2>
+    <div class="card-grid">
+      <div class="card-sm"><h4>Server</h4><p>Hetzner CX42 · Debian · Falkenstein, Germany (EU)</p></div>
+      <div class="card-sm"><h4>Operator</h4><p>Solo (lxadmin). Team access via Tailscale when needed.</p></div>
+      <div class="card-sm"><h4>Compliance</h4><p>GDPR baseline — worldwide users, data stays in EU.</p></div>
+      <div class="card-sm"><h4>Access Model</h4><p>SSH locked to home IP + Tailscale. Admin UIs Tailscale-only.</p></div>
+      <div class="card-sm"><h4>Hetzner FW</h4><p>Already configured: 80/443 open, port 22 limited to home IP.</p></div>
+      <div class="card-sm"><h4>Script</h4><p>Single idempotent <code class="inline-code">setup.sh</code>. Safe to re-run. Reusable on new servers.</p></div>
+    </div>
+  </section>
+
+  <!-- ── Architecture ── -->
+  <section id="architecture">
+    <h2><span class="icon">🏗</span> Architecture</h2>
+    <div class="arch">
+<span class="pub">Internet</span>
+  <span class="arrow">├──</span> <span class="pub">:80/:443</span> <span class="arrow">──▶</span> Hetzner FW <span class="arrow">──▶</span> UFW <span class="arrow">──▶</span> CrowdSec <span class="arrow">──▶</span> <span class="svc">Traefik (Coolify)</span>
+  <span class="arrow">│</span>                                                              <span class="arrow">├──</span> <span class="svc">Your Apps</span>
+  <span class="arrow">│</span>                                                              <span class="arrow">├──</span> <span class="svc">Postgres</span>
+  <span class="arrow">│</span>                                                              <span class="arrow">├──</span> <span class="svc">Redis</span>
+  <span class="arrow">│</span>                                                              <span class="arrow">└──</span> <span class="svc">MinIO</span>
+  <span class="arrow">│</span>
+  <span class="arrow">└──</span> <span class="pub">:22</span> <span class="arrow">──▶</span> Hetzner FW (home IP) <span class="arrow">──▶</span> UFW (home IP + Tailscale) <span class="arrow">──▶</span> sshd
+
+<span class="priv">Admin UIs (Tailscale-only):</span>
+  <span class="arrow">─</span> Coolify dashboard   :8000
+  <span class="arrow">─</span> MinIO console        :9001
+
+<span class="note">Backups:</span>
+  <span class="svc">Coolify volumes</span> <span class="arrow">──▶</span> rclone crypt <span class="arrow">──▶</span> <span class="svc">Hetzner Object Storage</span> <span class="note">(nightly, AES-256)</span>
+
+<span class="note">Monitoring:</span>
+  <span class="svc">Grafana Alloy</span> <span class="arrow">──▶</span> <span class="svc">Grafana Cloud</span> <span class="note">(metrics + logs)</span>
+
+<span class="note">Notifications (Discord → switchable to Slack):</span>
+  <span class="arrow">─</span> SSH login detected
+  <span class="arrow">─</span> Reboot required (pending security update)
+  <span class="arrow">─</span> Setup complete
+    </div>
+  </section>
+
+  <!-- ── Security ── -->
+  <section id="security">
+    <h2><span class="icon">🔒</span> Security Layers</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Layer</th>
+            <th>Type</th>
+            <th>Mechanism</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Hetzner Cloud Firewall</td>
+            <td><span class="layer-badge badge-net">Network</span></td>
+            <td>L3 block before traffic reaches the OS. 80/443 open, 22 home IP only.</td>
+          </tr>
+          <tr>
+            <td>UFW</td>
+            <td><span class="layer-badge badge-host">Host</span></td>
+            <td>Second firewall layer. Logs all blocked attempts → Loki/Grafana.</td>
+          </tr>
+          <tr>
+            <td>CrowdSec</td>
+            <td><span class="layer-badge badge-host">Host</span></td>
+            <td>Community threat intelligence. Blocks known bad IPs across thousands of servers.</td>
+          </tr>
+          <tr>
+            <td>SSH hardening</td>
+            <td><span class="layer-badge badge-host">Host</span></td>
+            <td>Key-only auth, root login disabled, home IP + Tailscale only. Login alert via Discord.</td>
+          </tr>
+          <tr>
+            <td>Tailscale</td>
+            <td><span class="layer-badge badge-net">Network</span></td>
+            <td>Admin UIs (Coolify :8000, MinIO :9001) not reachable without VPN.</td>
+          </tr>
+          <tr>
+            <td>Docker daemon</td>
+            <td><span class="layer-badge badge-app">App</span></td>
+            <td><code class="inline-code">no-new-privileges</code>, AppArmor, log rotation, resource limits.</td>
+          </tr>
+          <tr>
+            <td>Traefik middleware</td>
+            <td><span class="layer-badge badge-app">App</span></td>
+            <td>Global security headers (HSTS, X-Frame, nosniff) + rate limiting on all routes.</td>
+          </tr>
+          <tr>
+            <td>auditd</td>
+            <td><span class="layer-badge badge-host">Host</span></td>
+            <td>GDPR baseline: auth events, sudo, /etc/ writes, SSH key changes.</td>
+          </tr>
+          <tr>
+            <td>rclone crypt</td>
+            <td><span class="layer-badge badge-data">Data</span></td>
+            <td>AES-256 client-side encryption before backup upload. Hetzner cannot read data.</td>
+          </tr>
+          <tr>
+            <td>unattended-upgrades</td>
+            <td><span class="layer-badge badge-host">Host</span></td>
+            <td>Non-reboot patches auto-applied. Reboot-required → Discord notification.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Config ── -->
+  <section id="config">
+    <h2><span class="icon">⚙️</span> Configuration Block</h2>
+    <p>All secrets and environment-specific values live at the top of <code class="inline-code">setup.sh</code>. Nothing else needs editing before running.</p>
+    <pre><span class="c"># ─── CONFIGURATION ──────────────────────────────────────────────────────</span>
+
+<span class="v">DEPLOY_USER</span>=<span class="s">"lxadmin"</span>
+
+<span class="c"># Your home public IP — find it at https://ifconfig.me</span>
+<span class="v">HOME_IP</span>=<span class="s">"x.x.x.x"</span>
+
+<span class="c"># Notification webhook</span>
+<span class="c"># Discord: Server Settings → Integrations → Webhooks → New Webhook → Copy URL</span>
+<span class="c"># Slack:   api.slack.com → Your Apps → Incoming Webhooks → Add → Copy URL</span>
+<span class="v">WEBHOOK_URL</span>=<span class="s">"https://discord.com/api/webhooks/..."</span>
+<span class="v">WEBHOOK_TYPE</span>=<span class="s">"discord"</span>   <span class="c"># "discord" or "slack" — change both lines to switch</span>
+
+<span class="c"># Hetzner Object Storage</span>
+<span class="c"># Console → Object Storage → Buckets → Create Bucket (region: Falkenstein)</span>
+<span class="c"># Credentials: Object Storage → Access Keys → Generate Access Key</span>
+<span class="v">HETZNER_BUCKET</span>=<span class="s">"your-bucket-name"</span>
+<span class="v">HETZNER_ACCESS_KEY</span>=<span class="s">"..."</span>
+<span class="v">HETZNER_SECRET_KEY</span>=<span class="s">"..."</span>
+<span class="v">HETZNER_REGION</span>=<span class="s">"fsn1"</span>   <span class="c"># fsn1=Falkenstein, nbg1=Nuremberg, hel1=Helsinki</span>
+
+<span class="c"># Backup encryption passphrases</span>
+<span class="c"># Generate: openssl rand -base64 32</span>
+<span class="v">RCLONE_CRYPT_PASS</span>=<span class="s">"..."</span>
+<span class="v">RCLONE_CRYPT_PASS2</span>=<span class="s">"..."</span>  <span class="c"># Second passphrase (rclone requirement)</span>
+
+<span class="c"># Grafana Cloud</span>
+<span class="c"># Cloud → your stack → Connections → Add new connection → Linux node</span>
+<span class="c"># Copy the Alloy config: URL, user ID (numeric), and API key</span>
+<span class="v">GRAFANA_CLOUD_METRICS_URL</span>=<span class="s">"https://prometheus-prod-xx.grafana.net/api/prom/push"</span>
+<span class="v">GRAFANA_CLOUD_LOGS_URL</span>=<span class="s">"https://logs-prod-xx.grafana.net/loki/api/v1/push"</span>
+<span class="v">GRAFANA_CLOUD_USER_ID</span>=<span class="s">"123456"</span>
+<span class="c"># Grafana Cloud → your profile → Access Policies → Create token</span>
+<span class="v">GRAFANA_CLOUD_API_KEY</span>=<span class="s">"glc_..."</span>
+
+<span class="c"># Tailscale</span>
+<span class="c"># Admin Console → Settings → Keys → Generate auth key (reusable: off)</span>
+<span class="c"># https://login.tailscale.com/admin/settings/keys</span>
+<span class="v">TAILSCALE_AUTH_KEY</span>=<span class="s">"tskey-auth-..."</span>
+
+<span class="v">SWAP_SIZE</span>=<span class="s">"4G"</span>
+
+<span class="c"># ────────────────────────────────────────────────────────────────────────</span></pre>
+  </section>
+
+  <!-- ── Phases ── -->
+  <section id="phases">
+    <h2><span class="icon">🚀</span> Script Phases</h2>
+    <p style="margin-bottom:20px;color:var(--muted)">Each phase is idempotent — safe to re-run if setup fails partway through.</p>
+    <div class="phase-list">
+
+      <div class="phase">
+        <div class="phase-num">01</div>
+        <div class="phase-body">
+          <h4>System user + SSH hardening + login alert</h4>
+          <ul>
+            <li>Create <strong>lxadmin</strong> with sudo, copy root's authorized SSH keys</li>
+            <li><strong>sshd_config:</strong> PermitRootLogin no, PasswordAuthentication no</li>
+            <li><strong>PAM hook:</strong> fires Discord alert with timestamp + source IP on every SSH login</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">02</div>
+        <div class="phase-body">
+          <h4>Hetzner Private Network interface config</h4>
+          <ul>
+            <li>Configure <strong>eth1</strong> with static private IP (found in Hetzner Console → Server → Networking)</li>
+            <li>Enables free inter-server traffic when a second server is added later</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">03</div>
+        <div class="phase-body">
+          <h4>UFW firewall + logging</h4>
+          <ul>
+            <li>Default: <strong>deny incoming</strong>, allow outgoing</li>
+            <li>Allow 22 from <strong>$HOME_IP</strong> only · Allow 80/443 from anywhere</li>
+            <li>UFW logging on — blocked attempts flow into Loki/Grafana</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">04</div>
+        <div class="phase-body">
+          <h4>Tailscale</h4>
+          <ul>
+            <li>Install via official script, auth with <strong>$TAILSCALE_AUTH_KEY</strong></li>
+            <li>UFW: allow SSH from Tailscale subnet <strong>100.64.0.0/10</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">05</div>
+        <div class="phase-body">
+          <h4>CrowdSec</h4>
+          <ul>
+            <li>Install CrowdSec agent + <strong>Traefik bouncer</strong></li>
+            <li>Enroll in community blocklist — auto-blocks known bad IPs</li>
+            <li>Install collections: <strong>linux</strong>, <strong>traefik</strong>, <strong>ssh</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">06</div>
+        <div class="phase-body">
+          <h4>Swap file</h4>
+          <ul>
+            <li>Create <strong>$SWAP_SIZE</strong> (4GB) swap at /swapfile</li>
+            <li>swappiness=10 — prefer RAM, use swap as safety net only</li>
+            <li>Persisted in /etc/fstab</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">07</div>
+        <div class="phase-body">
+          <h4>unattended-upgrades + reboot webhook</h4>
+          <ul>
+            <li><strong>Automatic-Reboot: false</strong> — never reboots without your permission</li>
+            <li>Systemd timer (daily): checks /var/run/reboot-required, fires Discord if set</li>
+            <li>Non-reboot security patches applied automatically</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">08</div>
+        <div class="phase-body">
+          <h4>Docker + hardened daemon.json</h4>
+          <ul>
+            <li>Install Docker CE from official apt repo (pinned version)</li>
+            <li>Add lxadmin to <strong>docker</strong> group</li>
+            <li>daemon.json: <strong>no-new-privileges</strong>, live-restore, log rotation (10m/3 files), ulimits</li>
+            <li>AppArmor enabled by default on Debian — Docker uses it automatically</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">09</div>
+        <div class="phase-body">
+          <h4>Coolify install</h4>
+          <ul>
+            <li>Official Coolify install script</li>
+            <li>Coolify manages Postgres, Redis, MinIO as Docker containers</li>
+            <li>Dashboard on <strong>:8000</strong> (UFW blocks from internet — Tailscale only)</li>
+            <li>MinIO console on <strong>:9001</strong> (Tailscale only)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">10</div>
+        <div class="phase-body">
+          <h4>Traefik global security middleware</h4>
+          <ul>
+            <li>Configured via Coolify's Traefik dynamic config directory</li>
+            <li><strong>Security headers</strong> applied to all routes: HSTS (1yr), X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy, Permissions-Policy</li>
+            <li><strong>Rate limiting:</strong> 100 req/s per IP, burst 200 — DDoS protection at proxy level</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">11</div>
+        <div class="phase-body">
+          <h4>auditd — GDPR baseline</h4>
+          <ul>
+            <li>Install and enable auditd</li>
+            <li>Rules: auth events, sudo usage, writes to /etc/, SSH key changes</li>
+            <li>Logs forwarded to Loki via Grafana Alloy</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">12</div>
+        <div class="phase-body">
+          <h4>rclone + encrypted backup → Hetzner Object Storage</h4>
+          <ul>
+            <li>Install rclone, configure <strong>rclone crypt</strong> remote over Hetzner Object Storage</li>
+            <li>All data <strong>AES-256 encrypted client-side</strong> before upload — Hetzner cannot read it</li>
+            <li>Nightly cron (02:00): Postgres dumps, Redis RDB, MinIO data, Coolify config</li>
+            <li>Endpoint: <strong>fsn1.your-objectstorage.com</strong> (S3-compatible)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">13</div>
+        <div class="phase-body">
+          <h4>Grafana Alloy → Grafana Cloud</h4>
+          <ul>
+            <li>Install Grafana Alloy as systemd service</li>
+            <li><strong>Metrics:</strong> CPU, RAM, disk, network (node_exporter built-in)</li>
+            <li><strong>Logs:</strong> /var/log/syslog, /var/log/auth.log, Docker container stdout, UFW blocked IPs</li>
+            <li>Recommended dashboards to import: Node Exporter Full (1860), Docker (10619), Loki Logs (13639)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-num">14</div>
+        <div class="phase-body">
+          <h4>lynis security audit</h4>
+          <ul>
+            <li>Install lynis, run one-time audit at end of script</li>
+            <li>Report saved to <strong>/root/lynis-report.txt</strong></li>
+            <li>Hardening index score printed to terminal — review and act on recommendations</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Notifications ── -->
+  <section id="notifications">
+    <h2><span class="icon">🔔</span> Notification System</h2>
+    <p>A single <code class="inline-code">notify()</code> function handles both Discord and Slack. Switching providers requires changing two lines in the config block — nothing else.</p>
+    <pre><span class="k">notify</span>() {
+  <span class="k">local</span> <span class="v">msg</span>=<span class="s">"$1"</span>
+  <span class="k">if</span> [[ <span class="s">"$WEBHOOK_TYPE"</span> == <span class="s">"slack"</span> ]]; <span class="k">then</span>
+    curl -s -X POST <span class="s">"$WEBHOOK_URL"</span> \
+      -H <span class="s">"Content-Type: application/json"</span> \
+      -d <span class="s">"{\"text\": \"$msg\"}"</span>
+  <span class="k">else</span>
+    curl -s -X POST <span class="s">"$WEBHOOK_URL"</span> \
+      -H <span class="s">"Content-Type: application/json"</span> \
+      -d <span class="s">"{\"content\": \"$msg\"}"</span>
+  <span class="k">fi</span>
+}</pre>
+    <div class="notif-grid">
+      <div class="card-sm"><h4>SSH Login Alert</h4><p>User, source IP, and timestamp sent immediately on every SSH session start.</p></div>
+      <div class="card-sm"><h4>Reboot Required</h4><p>Daily check. Fires with pending update name and how long it's been waiting.</p></div>
+      <div class="card-sm"><h4>Setup Complete</h4><p>Summary notification at end of script listing installed phases.</p></div>
+      <div class="card-sm"><h4>Switching to Slack</h4><p>Change <code class="inline-code">WEBHOOK_URL</code> and <code class="inline-code">WEBHOOK_TYPE="slack"</code>. Done.</p></div>
+    </div>
+  </section>
+
+  <!-- ── Checklist ── -->
+  <section id="checklist">
+    <h2><span class="icon">✅</span> Prerequisites Checklist</h2>
+    <p style="margin-bottom:16px">Complete these in the Hetzner console and third-party dashboards <em>before</em> running the script.</p>
+    <div class="card">
+      <ul class="checklist">
+        <li><span class="check-done">✓</span> Hetzner Cloud Firewall configured (80/443 open, 22 limited to home IP)</li>
+        <li><span class="check-todo">○</span> Domain DNS A record pointing to server IP</li>
+        <li><span class="check-todo">○</span> Hetzner Private Network created and attached to server — note the assigned private IP</li>
+        <li><span class="check-todo">○</span> Hetzner Object Storage bucket created (region: Falkenstein / fsn1)</li>
+        <li><span class="check-todo">○</span> Hetzner Object Storage access key generated</li>
+        <li><span class="check-todo">○</span> Grafana Cloud account created, stack provisioned</li>
+        <li><span class="check-todo">○</span> Tailscale account created, one-time auth key generated</li>
+        <li><span class="check-todo">○</span> Discord webhook URL created</li>
+        <li><span class="check-todo">○</span> rclone crypt passphrases generated (<code class="inline-code">openssl rand -base64 32</code>)</li>
+        <li><span class="check-todo">○</span> All values filled into the config block at the top of <code class="inline-code">setup.sh</code></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── Coolify ── -->
+  <section id="coolify">
+    <h2><span class="icon">🐳</span> What Coolify Manages After Setup</h2>
+    <div class="card-grid">
+      <div class="card-sm"><h4>Services</h4><p>Postgres, Redis, MinIO deployed as Docker containers — configured via Coolify UI.</p></div>
+      <div class="card-sm"><h4>Reverse Proxy</h4><p>Traefik built into Coolify. Auto-SSL via Let's Encrypt for all deployed apps.</p></div>
+      <div class="card-sm"><h4>App Deployments</h4><p>Deploy from Git, Docker image, or Docker Compose. One-click deploys.</p></div>
+      <div class="card-sm"><h4>Scheduled Backups</h4><p>Coolify backs up Postgres → MinIO. Our script backs MinIO → Hetzner Object Storage.</p></div>
+    </div>
+  </section>
+
+  <!-- ── Expansion ── -->
+  <section id="expansion">
+    <h2><span class="icon">📈</span> Multi-Server Expansion</h2>
+    <p style="margin-bottom:16px">Coolify supports multi-server natively. Adding a second server is straightforward:</p>
+    <div class="card">
+      <div class="step-list">
+        <div class="step"><div class="step-n">1</div><div>Provision a new Hetzner CX42 in the same datacenter</div></div>
+        <div class="step"><div class="step-n">2</div><div>Add it to the same Hetzner Private Network (free inter-server traffic)</div></div>
+        <div class="step"><div class="step-n">3</div><div>Run <code class="inline-code">setup.sh</code> on the new server — same script, same config block</div></div>
+        <div class="step"><div class="step-n">4</div><div>In Coolify dashboard: Servers → Add Server → SSH into new server</div></div>
+        <div class="step"><div class="step-n">5</div><div>Coolify installs its agent. Server is ready for deployments immediately.</div></div>
+      </div>
+    </div>
+    <p style="margin-top:14px;color:var(--muted);font-size:14px">Coolify can deploy the same app across multiple servers with a load balancer. No additional orchestration tooling needed at this scale.</p>
+  </section>
+
+  <!-- ── Alternatives ── -->
+  <section id="alternatives">
+    <h2><span class="icon">🔀</span> Approach Alternatives</h2>
+    <div class="alt-grid">
+      <div class="alt chosen">
+        <div class="label">Option A <span class="chosen-badge">Chosen</span></div>
+        <h4>Bash Script</h4>
+        <p>Single idempotent script. No local tooling needed. Easy to audit, version in git, and hand to a new team member. Re-run on any new server.</p>
+      </div>
+      <div class="alt">
+        <div class="label">Option B</div>
+        <h4>Ansible Playbook</h4>
+        <p>Declarative, structured, great for secrets vault. Overkill for one server — migrate to this at 3+ servers or when team grows.</p>
+      </div>
+      <div class="alt">
+        <div class="label">Option C</div>
+        <h4>cloud-init</h4>
+        <p>Inject script into Hetzner server creation. Zero-touch provisioning from day 0. Best for frequent re-provisioning or auto-scaling scenarios.</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
